@@ -18,7 +18,6 @@ std::map<char, std::string> frequencyReader(const std::string& filePath) {
     }
 
     std::string line;
-
     while (std::getline(file, line)) {
         char letter;
         std::string frequency;
@@ -27,8 +26,12 @@ std::map<char, std::string> frequencyReader(const std::string& filePath) {
         std::istringstream iss(line);
         iss >> letter >> trash >> frequency;
 
-
         frequencyTable[letter] = frequency;
+    }
+
+    std::cout << "\n\t\t***Frequency Table***\n\n";
+    for (const auto& pair : frequencyTable) {
+        std::cout << "Letter: " << pair.first << " - Frequency: " << pair.second << std::endl;
     }
 
     return frequencyTable;
@@ -44,7 +47,7 @@ std::set<int> getDivisors(int n) {
     return divisors;
 }
 
-std::map<int, int> divisorFrequencies(const std::string& cipher, int patternLength) {
+void divisorFrequencies(const std::string& cipher, int patternLength) {
     std::unordered_map<std::string, std::vector<int>> patternPositions;
     std::map<int, int> divisorFrequency;
 
@@ -66,7 +69,17 @@ std::map<int, int> divisorFrequencies(const std::string& cipher, int patternLeng
         }
     }
 
-    return divisorFrequency;
+    std::vector<std::pair<int, int>> sortedDivisors(divisorFrequency.begin(), divisorFrequency.end());
+    std::sort(sortedDivisors.begin(), sortedDivisors.end(), [](const auto& a, const auto& b) {
+        return a.second > b.second;
+    });
+
+    std::cout << "\n\t\t***Most frequent divisors***\n\n";
+    int count = 0;
+    for (size_t i = 0; i < sortedDivisors.size() && count < 10; ++i) {
+        std::cout << "Divisor: " << sortedDivisors[i].first << " - Frequency: " << sortedDivisors[i].second << '\n';
+        count++;
+    }
 }
 
 std::string cipherReader(const std::string& filePath) {
@@ -86,6 +99,26 @@ std::string cipherReader(const std::string& filePath) {
     return content;
 }
 
+void Kasiski(const std::string& cipher, int keywordLength) {
+    std::vector<std::string> groups;
+
+    for (size_t i = 0; i < cipher.size(); i += keywordLength) {
+        groups.push_back(cipher.substr(i, keywordLength));
+    }
+
+    for (const auto& group : groups) {
+        std::unordered_map<char, int> frequencyCount;
+        for (char ch : group) {
+            frequencyCount[ch]++;
+        }
+        std::cout << "Substring: " << group << " Frequencies: ";
+        for (const auto& pair : frequencyCount) {
+            std::cout << pair.first << ":" << pair.second << " ";
+        }
+        std::cout << "\n";
+    }
+    std::cout << "\n**********************************************************\n\n";
+}
 
 int main() {
     std::string cipher = cipherReader("./resources/teste-eng.txt");
@@ -98,26 +131,11 @@ int main() {
         return 1;
     }
 
-    int patternLength = 4;
-    std::map<int, int> divisorFrequency = divisorFrequencies(cipher, patternLength);
+    int patternLength = 4; 
+    divisorFrequencies(cipher, patternLength);
 
-    std::vector<std::pair<int, int>> sortedDivisors(divisorFrequency.begin(), divisorFrequency.end());
-    std::sort(sortedDivisors.begin(), sortedDivisors.end(), [](const auto& a, const auto& b) {
-        return a.second > b.second;
-    });
-
-    std::cout << "\n\t\t***Most frequent divisors***\n\n";
-    int count = 0;
-    for (size_t i = 0; i < sortedDivisors.size() && count < 10; ++i) {
-        std::cout << "Divisor: " << sortedDivisors[i].first << " - Frequency: " << sortedDivisors[i].second << '\n';
-        count++;
-    }
-    std::cout << "\n**********************************************************\n\n";
-
-    for (const auto& pair : frequencyTable) {
-    std::cout << "Letter: " << pair.first << " - Frequency: " << pair.second << std::endl;
-    }
+    int keywordLength = 6; 
+    Kasiski(cipher, keywordLength);
 
     return 0;
 }
-
