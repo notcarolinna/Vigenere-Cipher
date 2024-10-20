@@ -7,10 +7,11 @@
 #include <set>
 #include <map>
 #include <sstream>
+#include <cctype>
 
-std::map<char, std::string> frequencyReader(const std::string& filePath) {
+std::vector<std::pair<char, double>> frequencyReader(const std::string& filePath) {
     std::ifstream file(filePath);
-    std::map<char, std::string> frequencyTable;
+    std::vector<std::pair<char, double>> frequencyTable;
 
     if (!file) {
         std::cerr << "Unable to open file: " << filePath << std::endl;
@@ -20,19 +21,18 @@ std::map<char, std::string> frequencyReader(const std::string& filePath) {
     std::string line;
     while (std::getline(file, line)) {
         char letter;
-        std::string frequency;
+        double frequency;
         std::string trash;
 
         std::istringstream iss(line);
         iss >> letter >> trash >> frequency;
 
-        frequencyTable[letter] = frequency;
+        frequencyTable.push_back({letter, frequency});
     }
 
-    std::cout << "\n\t\t***Frequency Table***\n\n";
-    for (const auto& pair : frequencyTable) {
-        std::cout << "Letter: " << pair.first << " - Frequency: " << pair.second << std::endl;
-    }
+    std::sort(frequencyTable.begin(), frequencyTable.end(), [](const auto& a, const auto& b) {
+        return a.second > b.second;
+    });
 
     return frequencyTable;
 }
@@ -82,7 +82,7 @@ void divisorFrequencies(const std::string& cipher, int patternLength) {
     }
 }
 
-std::string cipherReader(const std::string& filePath) {
+std::string readFile(const std::string& filePath) {
     std::ifstream file(filePath);
     std::string content;
 
@@ -99,8 +99,45 @@ std::string cipherReader(const std::string& filePath) {
     return content;
 }
 
-void Kasiski(const std::string& cipher, int keywordLength) {
+std::string shiftSubstring(const std::string& group, const std::vector<std::pair<char, double>>& frequencyTable) {
+    std::unordered_map<char, int> frequencyCount;
+    std::vector<std::pair<char, int>> appearanceOrder;
+
+    for (char ch : group) {
+        frequencyCount[ch]++;
+    }
+
+    for (char ch : group) {
+        appearanceOrder.emplace_back(ch, frequencyCount[ch]);
+    }
+
+    std::sort(appearanceOrder.begin(), appearanceOrder.end(), [&frequencyCount](const auto& a, const auto& b) {
+        return a.second > b.second;
+    });
+
+    std::string shifted(group.length(), ' ');
+    size_t i = 0;
+    std::unordered_map<char, char> mappedLetters;
+
+    for (const auto& pair : appearanceOrder) {
+        char cipherLetter = pair.first;
+        if (mappedLetters.find(cipherLetter) == mappedLetters.end()) {
+            mappedLetters[cipherLetter] = frequencyTable[i].first;
+            i++;
+        }
+    }
+
+    for (size_t j = 0; j < group.length(); ++j) {
+        shifted[j] = std::toupper(mappedLetters[group[j]]);
+    }
+
+    return shifted;
+}
+
+void Kasiski(const std::string& cipher, int keywordLength, const std::vector<std::pair<char, double>>& frequencyTable) {
     std::vector<std::string> groups;
+
+    std::cout << "\n\t\t***Kasiski Method***\n";
 
     for (size_t i = 0; i < cipher.size(); i += keywordLength) {
         groups.push_back(cipher.substr(i, keywordLength));
@@ -108,34 +145,41 @@ void Kasiski(const std::string& cipher, int keywordLength) {
 
     for (const auto& group : groups) {
         std::unordered_map<char, int> frequencyCount;
+
         for (char ch : group) {
             frequencyCount[ch]++;
         }
-        std::cout << "Substring: " << group << " Frequencies: ";
+
+        std::cout << std::endl; 
+
+        std::cout << "Substring: " << group << "\nFrequencies: ";
         for (const auto& pair : frequencyCount) {
             std::cout << pair.first << ":" << pair.second << " ";
         }
         std::cout << "\n";
+
+        std::string shiftedGroup = shiftSubstring(group, frequencyTable);
+        std::cout << "Shifted Substring: " << shiftedGroup << "\n";
     }
     std::cout << "\n**********************************************************\n\n";
 }
 
 int main() {
-    std::string cipher = cipherReader("./resources/teste-eng.txt");
+    std::string cipher = readFile("./resources/teste-eng.txt");
     if (cipher.empty()) {
         return 1;
     }
 
-    std::map<char, std::string> frequencyTable = frequencyReader("./resources/frequency.txt");
+    std::vector<std::pair<char, double>> frequencyTable = frequencyReader("./resources/frequency.txt");
     if (frequencyTable.empty()) {
         return 1;
     }
 
-    int patternLength = 4; 
+    int patternLength = 4;
     divisorFrequencies(cipher, patternLength);
 
-    int keywordLength = 6; 
-    Kasiski(cipher, keywordLength);
+    int keywordLength = 6;
+    Kasiski(cipher, keywordLength, frequencyTable);
 
     return 0;
 }
