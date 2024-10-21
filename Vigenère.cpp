@@ -34,6 +34,10 @@ std::vector<std::pair<char, double>> frequencyReader(const std::string& filePath
         return a.second > b.second;
     });
 
+    for(const auto& pair : frequencyTable) {
+        std::cout << pair.first << " - " << pair.second << '\n';
+    }
+
     return frequencyTable;
 }
 
@@ -73,13 +77,6 @@ void divisorFrequencies(const std::string& cipher, int patternLength) {
     std::sort(sortedDivisors.begin(), sortedDivisors.end(), [](const auto& a, const auto& b) {
         return a.second > b.second;
     });
-
-    std::cout << "\n\t\t***Most frequent divisors***\n\n";
-    int count = 0;
-    for (size_t i = 0; i < sortedDivisors.size() && count < 10; ++i) {
-        std::cout << "Divisor: " << sortedDivisors[i].first << " - Frequency: " << sortedDivisors[i].second << '\n';
-        count++;
-    }
 }
 
 std::string readFile(const std::string& filePath) {
@@ -99,78 +96,96 @@ std::string readFile(const std::string& filePath) {
     return content;
 }
 
-std::string shiftSubstring(const std::string& group, const std::vector<std::pair<char, double>>& frequencyTable) {
+std::unordered_map<char, int> getFrequencies(const std::string& str) {
     std::unordered_map<char, int> frequencyCount;
-    std::vector<std::pair<char, int>> appearanceOrder;
-
-    for (char ch : group) {
+    for (char ch : str) {
         frequencyCount[ch]++;
     }
-
-    for (char ch : group) {
-        appearanceOrder.emplace_back(ch, frequencyCount[ch]);
-    }
-
-    std::sort(appearanceOrder.begin(), appearanceOrder.end(), [&frequencyCount](const auto& a, const auto& b) {
-        return a.second > b.second;
-    });
-
-    std::string shifted(group.length(), ' ');
-    size_t i = 0;
-    std::unordered_map<char, char> mappedLetters;
-
-    for (const auto& pair : appearanceOrder) {
-        char cipherLetter = pair.first;
-        if (mappedLetters.find(cipherLetter) == mappedLetters.end()) {
-            mappedLetters[cipherLetter] = frequencyTable[i].first;
-            i++;
-        }
-    }
-
-    for (size_t j = 0; j < group.length(); ++j) {
-        shifted[j] = std::toupper(mappedLetters[group[j]]);
-    }
-
-    return shifted;
+    return frequencyCount;
 }
 
-void Kasiski(const std::string& cipher, int keywordLength, const std::vector<std::pair<char, double>>& frequencyTable) {
-    std::vector<std::string> groups;
+std::vector<std::pair<char, int>> sortFrequencies(const std::unordered_map<char, int>& frequencyCount) {
+    std::vector<std::pair<char, int>> sortedFrequencies(frequencyCount.begin(), frequencyCount.end());
+    std::sort(sortedFrequencies.begin(), sortedFrequencies.end(), [](const auto& a, const auto& b) {
+        return a.second > b.second;
+    });
+    return sortedFrequencies;
+}
 
-    std::cout << "\n\t\t***Kasiski Method***\n";
+int calculateShift(char from, char to) {
+    return (to - from + 26) % 26;
+}
+
+char getLetterFromShift(int shift) {
+    return 'A' + shift;
+}
+
+void Kasiski(const std::string& cipher, int keywordLength, const std::vector<std::pair<char, double>>& frequencyTable, std::vector<int>& shifts) {
+    std::vector<std::string> groups;
+    std::vector<std::string> lettersByPosition(keywordLength);
 
     for (size_t i = 0; i < cipher.size(); i += keywordLength) {
         groups.push_back(cipher.substr(i, keywordLength));
     }
 
     for (const auto& group : groups) {
-        std::unordered_map<char, int> frequencyCount;
-
-        for (char ch : group) {
-            frequencyCount[ch]++;
+        for (size_t pos = 0; pos < group.length(); ++pos) {
+            if (pos < keywordLength) {
+                lettersByPosition[pos] += group[pos];
+            }
         }
+    }
 
-        std::cout << std::endl; 
+    std::cout << "\n\t\t***Letters by Position***\n\n";
+    for (size_t i = 0; i < lettersByPosition.size(); ++i) {
+        auto frequencyCount = getFrequencies(lettersByPosition[i]);
+        auto sortedFrequencies = sortFrequencies(frequencyCount);
 
-        std::cout << "Substring: " << group << "\nFrequencies: ";
-        for (const auto& pair : frequencyCount) {
-            std::cout << pair.first << ":" << pair.second << " ";
+        if (!sortedFrequencies.empty()) {
+            char mostFrequentLetter = sortedFrequencies[0].first;
+            int shift = calculateShift('A', mostFrequentLetter);
+            char letterFromShift = getLetterFromShift(shift);
+            
+            shifts.push_back(shift);
+
+            std::cout << "STR" << (i + 1) << ": "  
+                      << "\nMost frequent letter: " << mostFrequentLetter 
+                      << " - Frequency: " << sortedFrequencies[0].second 
+                      << " - Shift from E: " << shift 
+                      << " - Letter from Shift: " << letterFromShift << "\n";
         }
-        std::cout << "\n";
-
-        std::string shiftedGroup = shiftSubstring(group, frequencyTable);
-        std::cout << "Shifted Substring: " << shiftedGroup << "\n";
     }
     std::cout << "\n**********************************************************\n\n";
 }
 
+std::string decryptVigenere(const std::string& cipher, const std::string& key) {
+    std::string decrypted;
+    size_t keyIndex = 0;
+
+    for (char ch : cipher) {
+        if (isalpha(ch)) {
+            char offset = isupper(ch) ? 'A' : 'a';
+            char keyChar = key[keyIndex % key.length()];
+
+            char decryptedChar = (ch - keyChar + 26) % 26 + offset; 
+            decrypted += decryptedChar;
+
+            keyIndex++;
+        } else {
+            decrypted += ch;
+        }
+    }
+
+    return decrypted;
+}
+
 int main() {
-    std::string cipher = readFile("./resources/teste-eng.txt");
+    std::string cipher = readFile("./resources/cipher.txt");
     if (cipher.empty()) {
         return 1;
     }
 
-    std::vector<std::pair<char, double>> frequencyTable = frequencyReader("./resources/frequency.txt");
+    std::vector<std::pair<char, double>> frequencyTable = frequencyReader("./resources/frequencia.txt");
     if (frequencyTable.empty()) {
         return 1;
     }
@@ -179,7 +194,16 @@ int main() {
     divisorFrequencies(cipher, patternLength);
 
     int keywordLength = 6;
-    Kasiski(cipher, keywordLength, frequencyTable);
+    std::vector<int> shifts;
+    Kasiski(cipher, keywordLength, frequencyTable, shifts);
+
+    std::string key;
+    for (int shift : shifts) {
+        key += getLetterFromShift(shift);
+    }
+
+    std::string decryptedText = decryptVigenere(cipher, key);
+    std::cout << "Decrypted Text: " << decryptedText << std::endl;
 
     return 0;
 }
