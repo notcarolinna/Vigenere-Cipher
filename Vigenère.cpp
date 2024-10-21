@@ -8,6 +8,14 @@
 #include <map>
 #include <sstream>
 #include <cctype>
+#include <filesystem>
+#include <chrono>
+
+/*
+Os divisores de cada texto é o 4º da lista de frequências
+*/
+
+namespace fs = std::filesystem;
 
 std::vector<std::pair<char, double>> frequencyReader(const std::string& filePath) {
     std::ifstream file(filePath);
@@ -33,10 +41,6 @@ std::vector<std::pair<char, double>> frequencyReader(const std::string& filePath
     std::sort(frequencyTable.begin(), frequencyTable.end(), [](const auto& a, const auto& b) {
         return a.second > b.second;
     });
-
-    for(const auto& pair : frequencyTable) {
-        std::cout << pair.first << " - " << pair.second << '\n';
-    }
 
     return frequencyTable;
 }
@@ -77,6 +81,11 @@ void divisorFrequencies(const std::string& cipher, int patternLength) {
     std::sort(sortedDivisors.begin(), sortedDivisors.end(), [](const auto& a, const auto& b) {
         return a.second > b.second;
     });
+
+    std::cout << "\n\n10 divisores mais frequentes:\n";
+    for (size_t i = 0; i < std::min(sortedDivisors.size(), size_t(10)); i++) {
+        std::cout << "Divisor: " << sortedDivisors[i].first << std::endl;
+    }
 }
 
 std::string readFile(const std::string& filePath) {
@@ -120,7 +129,7 @@ char getLetterFromShift(int shift) {
     return 'A' + shift;
 }
 
-void Kasiski(const std::string& cipher, int keywordLength, const std::vector<std::pair<char, double>>& frequencyTable, std::vector<int>& shifts) {
+void Kasiski(const std::string& cipher, size_t keywordLength, std::vector<int>& shifts) {
     std::vector<std::string> groups;
     std::vector<std::string> lettersByPosition(keywordLength);
 
@@ -129,6 +138,8 @@ void Kasiski(const std::string& cipher, int keywordLength, const std::vector<std
     }
 
     for (const auto& group : groups) {
+        auto frequencyCount = getFrequencies(group);
+
         for (size_t pos = 0; pos < group.length(); ++pos) {
             if (pos < keywordLength) {
                 lettersByPosition[pos] += group[pos];
@@ -136,7 +147,6 @@ void Kasiski(const std::string& cipher, int keywordLength, const std::vector<std
         }
     }
 
-    std::cout << "\n\t\t***Letters by Position***\n\n";
     for (size_t i = 0; i < lettersByPosition.size(); ++i) {
         auto frequencyCount = getFrequencies(lettersByPosition[i]);
         auto sortedFrequencies = sortFrequencies(frequencyCount);
@@ -147,12 +157,6 @@ void Kasiski(const std::string& cipher, int keywordLength, const std::vector<std
             char letterFromShift = getLetterFromShift(shift);
             
             shifts.push_back(shift);
-
-            std::cout << "STR" << (i + 1) << ": "  
-                      << "\nMost frequent letter: " << mostFrequentLetter 
-                      << " - Frequency: " << sortedFrequencies[0].second 
-                      << " - Shift from E: " << shift 
-                      << " - Letter from Shift: " << letterFromShift << "\n";
         }
     }
     std::cout << "\n**********************************************************\n\n";
@@ -179,13 +183,34 @@ std::string decryptVigenere(const std::string& cipher, const std::string& key) {
     return decrypted;
 }
 
+void listCiphertexts(const std::string& directoryPath) {
+    std::cout << "Available ciphertexts for decryption:\n";
+    for (const auto& entry : fs::directory_iterator(directoryPath)) {
+        if (entry.is_regular_file()) {
+            std::cout << entry.path().filename().string() << '\n';
+        }
+    }
+}
+
 int main() {
-    std::string cipher = readFile("./resources/cipher.txt");
+    std::cout << "\n\nVigenère Cipher Decryption\n" << std::endl;
+
+    const std::string ciphertextsDir = "./resources/ciphertexts";
+    listCiphertexts(ciphertextsDir);
+
+    std::string selectedCiphertext; 
+    std::cout << "Enter the name of the ciphertext to decrypt (e.g., 'cipher.txt'): ";
+    std::cin >> selectedCiphertext;
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
+    std::string cipher = readFile(ciphertextsDir + "/" + selectedCiphertext);
     if (cipher.empty()) {
         return 1;
     }
 
-    std::vector<std::pair<char, double>> frequencyTable = frequencyReader("./resources/frequencia.txt");
+    std::vector<std::pair<char, double>> frequencyTable = frequencyReader("./resources/frequencies/frequencia.txt");
+
     if (frequencyTable.empty()) {
         return 1;
     }
@@ -193,9 +218,9 @@ int main() {
     int patternLength = 4;
     divisorFrequencies(cipher, patternLength);
 
-    int keywordLength = 6;
+    size_t keywordLength = 6;
     std::vector<int> shifts;
-    Kasiski(cipher, keywordLength, frequencyTable, shifts);
+    Kasiski(cipher, keywordLength, shifts);
 
     std::string key;
     for (int shift : shifts) {
@@ -203,7 +228,11 @@ int main() {
     }
 
     std::string decryptedText = decryptVigenere(cipher, key);
-    std::cout << "Decrypted Text: " << decryptedText << std::endl;
+    std::cout << "\nDecrypted Text: \n" << decryptedText << std::endl;
+
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "\nKey: " << key << std::endl;
+    std::cout << "Decryption took " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << " [s]" << std::endl;
 
     return 0;
 }
