@@ -11,10 +11,6 @@
 #include <filesystem>
 #include <chrono>
 
-/*
-Os divisores de cada texto é o 4º da lista de frequências
-*/
-
 namespace fs = std::filesystem;
 
 std::vector<std::pair<char, double>> frequencyReader(const std::string& filePath) {
@@ -55,7 +51,7 @@ std::set<int> getDivisors(int n) {
     return divisors;
 }
 
-void divisorFrequencies(const std::string& cipher, int patternLength) {
+int divisorFrequencies(const std::string& cipher, int patternLength) {
     std::unordered_map<std::string, std::vector<int>> patternPositions;
     std::map<int, int> divisorFrequency;
 
@@ -84,7 +80,14 @@ void divisorFrequencies(const std::string& cipher, int patternLength) {
 
     std::cout << "\n\n10 divisores mais frequentes:\n";
     for (size_t i = 0; i < std::min(sortedDivisors.size(), size_t(10)); i++) {
-        std::cout << "Divisor: " << sortedDivisors[i].first << std::endl;
+        std::cout << "Divisor: " << sortedDivisors[i].first << " Frequency: " << sortedDivisors[i].second << std::endl;
+    }
+
+    if (sortedDivisors.size() >= 4) {
+        return sortedDivisors[3].first;  
+    } else {
+        std::cerr << "Menos de 4 divisores encontrados.\n";
+        return 1;  
     }
 }
 
@@ -216,9 +219,8 @@ int main() {
     }
 
     int patternLength = 4;
-    divisorFrequencies(cipher, patternLength);
+    size_t keywordLength = divisorFrequencies(cipher, patternLength);  // Pega o divisor mais frequente na posição 4
 
-    size_t keywordLength = 6;
     std::vector<int> shifts;
     Kasiski(cipher, keywordLength, shifts);
 
