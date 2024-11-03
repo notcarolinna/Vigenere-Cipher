@@ -13,34 +13,6 @@
 
 namespace fs = std::filesystem;
 
-std::vector<std::pair<char, double>> frequencyReader(const std::string& filePath) {
-    std::ifstream file(filePath);
-    std::vector<std::pair<char, double>> frequencyTable;
-
-    if (!file) {
-        std::cerr << "Unable to open file: " << filePath << std::endl;
-        return frequencyTable;
-    }
-
-    std::string line;
-    while (std::getline(file, line)) {
-        char letter;
-        double frequency;
-        std::string trash;
-
-        std::istringstream iss(line);
-        iss >> letter >> trash >> frequency;
-
-        frequencyTable.push_back({letter, frequency});
-    }
-
-    std::sort(frequencyTable.begin(), frequencyTable.end(), [](const auto& a, const auto& b) {
-        return a.second > b.second;
-    });
-
-    return frequencyTable;
-}
-
 std::set<int> getDivisors(int n) {
     std::set<int> divisors;
     for (int i = 1; i <= n; i++) {
@@ -162,7 +134,6 @@ void Kasiski(const std::string& cipher, size_t keywordLength, std::vector<int>& 
             shifts.push_back(shift);
         }
     }
-    std::cout << "\n**********************************************************\n\n";
 }
 
 std::string decryptVigenere(const std::string& cipher, const std::string& key) {
@@ -212,14 +183,8 @@ int main() {
         return 1;
     }
 
-    std::vector<std::pair<char, double>> frequencyTable = frequencyReader("./resources/frequencies/frequencia.txt");
-
-    if (frequencyTable.empty()) {
-        return 1;
-    }
-
     int patternLength = 4;
-    size_t keywordLength = divisorFrequencies(cipher, patternLength);  // Pega o divisor mais frequente na posição 4
+    int keywordLength = divisorFrequencies(cipher, patternLength); 
 
     std::vector<int> shifts;
     Kasiski(cipher, keywordLength, shifts);
